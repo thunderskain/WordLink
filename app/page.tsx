@@ -1,31 +1,51 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const [input, setInput] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState('');
+  const [myWord, setMyWord] = useState('');
   const [wordCount, setWordCount] = useState(0);
+  const [words, setWords] = useState<string[]>([]);
+  const [result, setResult] = useState('');
 
-  const submitWord = async () => {
+  useEffect(() => {
+    const storedWords = sessionStorage.getItem('submittedWord');
+    if (storedWords) {
+      setMyWord(storedWords);
+    }
+  }, []);
+
+  const handleSubmit = () => {
     if (!input.trim()) return;
+    const word = input.trim();
+    const updatedWords = [...words, word];
+    setWords(updatedWords);
+    sessionStorage.setItem('submittedWord', word);
+    setMyWord(word);
+    setWordCount(prev => prev + 1);
+    setInput('');
+  };
+
+  const handleEndRound = async () => {
+    if (words.length < 2) {
+      alert("Need at least 2 words to compare.");
+      return;
+    }
+
     const res = await fetch('/api/similarity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ words: [input.trim()] }),
+      body: JSON.stringify({ words }),
     });
     const data = await res.json();
     setResult(data.result);
-    setSubmitted(true);
-    setWordCount((prev) => prev + 1);
-    setInput('');
   };
 
   return (
     <main className="p-6 max-w-xl mx-auto">
       <h1 className="text-2xl mb-4 font-bold">WordMatch GPT Game</h1>
 
-      {!submitted ? (
+      {!myWord ? (
         <>
           <input
             value={input}
@@ -34,19 +54,26 @@ export default function Home() {
             className="border p-2 mr-2 w-64"
           />
           <button
-            onClick={submitWord}
+            onClick={handleSubmit}
             className="bg-blue-600 text-white px-4 py-2 rounded"
           >
             Submit Word
           </button>
         </>
       ) : (
-        <p className="text-green-600 font-medium">Word submitted! Waiting for others…</p>
+        <p className="text-green-700 font-medium">You submitted: <b>{myWord}</b></p>
       )}
 
-      <div className="mt-6">
-        <p className="text-sm text-gray-700">Total words submitted: {wordCount}</p>
+      <div className="mt-4">
+        <p className="text-sm text-gray-700">Words entered this session: {wordCount}</p>
       </div>
+
+      <button
+        onClick={handleEndRound}
+        className="bg-red-600 text-white px-4 py-2 mt-6 rounded"
+      >
+        End Round (Game Master)
+      </button>
 
       {result && (
         <div className="mt-6 text-lg font-semibold">
